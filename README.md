@@ -1,50 +1,54 @@
-# Chista
+<div align="center">
+  <img src="assets/img/logo.png" alt="Chista Logo" width="200"/>
+  
+  # Chista
+  
+  AI-powered customer support chat system named after the Zoroastrian deity of wisdom and knowledge.
+</div>
 
-Система чата техподдержки с AI-агентом, названная в честь зороастрического божества мудрости и знаний.
+## Description
 
-## Описание
+Chista is an embeddable customer support chat widget that uses an AI agent for automatic responses and allows human operators to join conversations when needed.
 
-Chista - это встраиваемый виджет чата техподдержки, который использует AI-агента для автоматических ответов и позволяет операторам-людям подключаться к разговору при необходимости.
+### Key Features
 
-### Основные возможности
+- 🤖 **AI Agent**: Automatic responses via OpenRouter API
+- 💬 **Live Operators**: Human operator can join conversations
+- 🔧 **Embeddable Widget**: Easy integration into any website
+- 🗄️ **Message History**: All chats saved in MySQL database
+- 🔐 **Security**: Token-based authentication with domain protection
+- 📊 **Operator Panel**: Convenient interface for chat management
 
-- 🤖 **AI-агент**: Автоматические ответы через OpenRouter API
-- 💬 **Живые операторы**: Возможность подключения человека-оператора
-- 🔧 **Встраиваемый виджет**: Легко интегрируется в любой веб-сайт
-- 🗄️ **История сообщений**: Сохранение всех чатов в MySQL
-- 🔐 **Безопасность**: Система токенов и защита по доменам
-- 📊 **Панель оператора**: Удобный интерфейс для управления чатами
-
-## Технологии
+## Technologies
 
 - **Backend**: PHP-FPM
 - **Frontend**: jQuery + Bootstrap
-- **База данных**: MySQL
+- **Database**: MySQL
 - **AI**: OpenRouter API
-- **Контейнеризация**: Docker
+- **Containerization**: Docker
 
-## Быстрый старт
+## Quick Start
 
-### Требования
+### Requirements
 
-- Docker и Docker Compose
+- Docker and Docker Compose
 - PHP 8.1+
 - Composer
 
-### Установка
+### Installation
 
-1. Клонируйте репозиторий:
+1. Clone the repository:
 ```bash
 git clone <repository-url>
 cd chista
 ```
 
-2. Скопируйте файл окружения:
+2. Copy environment file:
 ```bash
 cp .env.example .env
 ```
 
-3. Настройте переменные в `.env`:
+3. Configure variables in `.env`:
 ```env
 DB_HOST=mysql
 DB_NAME=chista
@@ -53,30 +57,30 @@ DB_PASSWORD=secure_password
 OPENROUTER_API_KEY=your_api_key
 ```
 
-4. Запустите контейнеры:
+4. Start containers:
 ```bash
 docker-compose up -d
 ```
 
-5. Установите зависимости:
+5. Install dependencies:
 ```bash
 docker-compose exec php composer install
 ```
 
-6. Выполните миграции:
+6. Run migrations:
 ```bash
 docker-compose exec php php src/migrations/migrate.php
 ```
 
-### Использование
+### Usage
 
-- **Виджет чата**: `http://localhost/widget.js`
-- **Панель оператора**: `http://localhost/operator/`
+- **Chat Widget**: `http://localhost/widget.js`
+- **Operator Panel**: `http://localhost/operator/`
 - **API**: `http://localhost/api/`
 
-## Интеграция
+## Integration
 
-Для встраивания виджета на ваш сайт:
+To embed the widget on your website:
 
 ```html
 <script>
@@ -88,56 +92,56 @@ docker-compose exec php php src/migrations/migrate.php
 <script src="http://your-chista-domain.com/widget.js"></script>
 ```
 
-## Разработка
+## Development
 
-### Структура проекта
+### Project Structure
 
 ```
 chista/
-├── public/              # Веб-корень
-├── src/                 # PHP исходники
-├── assets/              # CSS, JS, изображения
-├── config/              # Конфигурационные файлы
-├── database/            # Миграции и схемы
-└── docker/              # Docker конфигурация
+├── public/              # Web root
+├── src/                 # PHP source code
+├── assets/              # CSS, JS, images
+├── config/              # Configuration files
+├── database/            # Migrations and schemas
+└── docker/              # Docker configuration
 ```
 
-### Команды разработки
+### Development Commands
 
 ```bash
-# Запуск в режиме разработки
+# Start in development mode
 docker-compose up
 
-# Просмотр логов
+# View logs
 docker-compose logs -f php
 
-# Подключение к контейнеру PHP
+# Connect to PHP container
 docker-compose exec php bash
 
-# Выполнение миграций
+# Run migrations
 docker-compose exec php php src/migrations/migrate.php
 
-# Создание нового токена
+# Create new token
 docker-compose exec php php src/cli/create-token.php --project="Project Name" --domain="example.com"
 ```
 
 ## API
 
-### Основные эндпоинты
+### Main Endpoints
 
-- `POST /api/chat/start` - Начать новый чат
-- `POST /api/chat/message` - Отправить сообщение
-- `GET /api/chat/history/{chatId}` - Получить историю чата
-- `POST /api/chat/request-human` - Запросить оператора
-- `GET /api/operator/chats` - Список чатов для оператора
+- `POST /api/chat/start` - Start new chat
+- `POST /api/chat/message` - Send message
+- `GET /api/chat/history/{chatId}` - Get chat history
+- `POST /api/chat/request-human` - Request human operator
+- `GET /api/operator/chats` - List chats for operator
 
-## Лицензия
+## License
 
 MIT License
 
-## Поддержка
+## Support
 
-Для вопросов и поддержки создайте issue в этом репозитории.
+For questions and support, please create an issue in this repository.
 
 ---
 
