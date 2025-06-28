@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/img/logo.png" alt="Chista Logo" width="200"/>
+  <img src="public/assets/img/logo.png" alt="Chista Logo" width="200"/>
   
   # Chista
   
