@@ -221,6 +221,9 @@ useEffect(() => {<br>
                 <p>"Chista ilumina el camino hacia el conocimiento a través de la conversación"</p>
             </div>
         </div>
+        
+        <!-- Load Chista Widget for Demo -->
+        <script src="/widget.js"></script>
     </body>
     </html>
     <?php
