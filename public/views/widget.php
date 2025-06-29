@@ -235,7 +235,10 @@ function serveWidget(): void
             <div id="chista-chat-window">
                 <div id="chista-chat-header">
                     <div id="chista-chat-title">Soporte Chista</div>
-                    <button id="chista-chat-close" aria-label="Cerrar chat">&times;</button>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="chista-new-chat" aria-label="Nuevo chat" style="background: none; border: none; color: white; font-size: 14px; cursor: pointer; padding: 4px 8px; border-radius: 4px; background: rgba(255,255,255,0.2);">Nuevo</button>
+                        <button id="chista-chat-close" aria-label="Cerrar chat">&times;</button>
+                    </div>
                 </div>
                 
                 <div id="chista-chat-messages">
@@ -266,6 +269,7 @@ function serveWidget(): void
         const chatButton = document.getElementById('chista-chat-button');
         const chatWindow = document.getElementById('chista-chat-window');
         const chatClose = document.getElementById('chista-chat-close');
+        const chatNewChat = document.getElementById('chista-new-chat');
         const chatInput = document.getElementById('chista-chat-input');
         const chatSend = document.getElementById('chista-chat-send');
         const chatMessages = document.getElementById('chista-chat-messages');
@@ -279,12 +283,16 @@ function serveWidget(): void
         }
         
         let isOpen = false;
+        let currentChatId = localStorage.getItem('chista_chat_id') || null;
         
         function toggleChat() {
             isOpen = !isOpen;
             chatWindow.style.display = isOpen ? 'flex' : 'none';
             if (isOpen) {
                 chatInput.focus();
+                if (currentChatId) {
+                    loadChatHistory();
+                }
             }
         }
         
@@ -320,15 +328,31 @@ function serveWidget(): void
         
         async function sendMessage(message) {
             try {
+                const requestBody = {
+                    message: message,
+                    timestamp: new Date().toISOString()
+                };
+                
+                if (currentChatId) {
+                    requestBody.chat_id = currentChatId;
+                }
+                
+                // Add configuration if available
+                if (window.chistaConfig) {
+                    if (window.chistaConfig.token) {
+                        requestBody.token = window.chistaConfig.token;
+                    }
+                    if (window.chistaConfig.domain) {
+                        requestBody.domain = window.chistaConfig.domain;
+                    }
+                }
+                
                 const response = await fetch(`${CHISTA_API_BASE}/api/chat`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        message: message,
-                        timestamp: new Date().toISOString()
-                    })
+                    body: JSON.stringify(requestBody)
                 });
                 
                 if (!response.ok) {
@@ -336,6 +360,13 @@ function serveWidget(): void
                 }
                 
                 const data = await response.json();
+                
+                if (data.chat_id) {
+                    currentChatId = data.chat_id;
+                    localStorage.setItem('chista_chat_id', currentChatId);
+                    console.log('Chista: Chat ID set to', currentChatId);
+                }
+                
                 return data.response || 'Lo siento, no pude procesar tu mensaje. Inténtalo de nuevo.';
             } catch (error) {
                 console.error('Chista API Error:', error);
@@ -364,8 +395,54 @@ function serveWidget(): void
             chatInput.style.height = Math.min(chatInput.scrollHeight, 100) + 'px';
         }
         
+        async function loadChatHistory() {
+            if (!currentChatId) return;
+            
+            try {
+                const response = await fetch(`${CHISTA_API_BASE}/api/chat/${currentChatId}/history`);
+                
+                if (!response.ok) {
+                    console.warn('Chista: Could not load chat history');
+                    return;
+                }
+                
+                const data = await response.json();
+                
+                const welcomeMessage = chatMessages.querySelector('.chista-message');
+                chatMessages.innerHTML = '';
+                if (welcomeMessage) {
+                    chatMessages.appendChild(welcomeMessage);
+                }
+                data.messages.forEach(msg => {
+                    const isUser = msg.sender_type === 'user';
+                    addMessage(msg.content, isUser);
+                });
+                
+                console.log('Chista: Loaded', data.messages.length, 'historical messages');
+                
+            } catch (error) {
+                console.warn('Chista: Failed to load chat history:', error);
+            }
+        }
+        
+        function startNewChat() {
+            currentChatId = null;
+            localStorage.removeItem('chista_chat_id');
+            
+            const welcomeMessage = chatMessages.querySelector('.chista-message');
+            chatMessages.innerHTML = '';
+            if (welcomeMessage) {
+                chatMessages.appendChild(welcomeMessage);
+            }
+            
+            console.log('Chista: Started new chat');
+        }
+        
         chatButton.addEventListener('click', toggleChat);
         chatClose.addEventListener('click', toggleChat);
+        if (chatNewChat) {
+            chatNewChat.addEventListener('click', startNewChat);
+        }
         chatSend.addEventListener('click', handleSubmit);
         
         chatInput.addEventListener('keydown', (e) => {

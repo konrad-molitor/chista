@@ -24,16 +24,13 @@ class OpenRouterService
         $messages = [
             [
                 'role' => 'system',
-                'content' => 'Eres Chista, un asistente de soporte al cliente inteligente y útil. Responde siempre en español de manera amigable y profesional. Ayuda a los usuarios con sus consultas sobre productos y servicios.'
+                'content' => 'Eres Chista, un asistente de soporte al cliente inteligente y útil. Responde siempre en español de manera amigable y profesional. Ayuda a los usuarios con sus consultas sobre productos y servicios. Mantén el contexto de la conversación anterior.'
             ]
         ];
 
-        // Add context messages if provided
         foreach ($context as $msg) {
             $messages[] = $msg;
         }
-
-        // Add current user message
         $messages[] = [
             'role' => 'user',
             'content' => $message

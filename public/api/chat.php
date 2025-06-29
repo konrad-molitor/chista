@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/openrouter.php';
+require_once __DIR__ . '/chat-service.php';
 
 function handleChatRequest(string $method): void
 {
@@ -14,6 +15,10 @@ function handleChatRequest(string $method): void
 
     $input = json_decode(file_get_contents('php://input'), true);
     $message = $input['message'] ?? '';
+    $chatId = isset($input['chat_id']) ? (int)$input['chat_id'] : null;
+    $token = $input['token'] ?? 'default';
+    $domain = $input['domain'] ?? 'localhost';
+    $userSessionId = $input['user_session_id'] ?? null;
 
     if (empty($message)) {
         http_response_code(400);
@@ -22,33 +27,68 @@ function handleChatRequest(string $method): void
     }
 
     try {
+        $chatService = new ChatService();
         $openRouter = new OpenRouterService();
         
-        if ($openRouter->isConfigured()) {
-            // Use AI response
-            $response = $openRouter->sendMessage($message);
+        if (!$chatId) {
+            $chatId = $chatService->createChat($token, $domain, $userSessionId);
         } else {
-            // Fallback to keyword matching if OpenRouter is not configured
-            $response = getFallbackResponse($message);
+            if (!$chatService->chatExists($chatId)) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Chat not found']);
+                return;
+            }
         }
+        
+        $userMessageId = $chatService->saveUserMessage($chatId, $message);
+        $chatService->updateChatActivity($chatId);
+        
+        // Generate AI response
+        if ($openRouter->isConfigured()) {
+            $context = $chatService->getChatContext($chatId, 10);
+            
+            if (!empty($context)) {
+                array_pop($context);
+            }
+            
+            $response = $openRouter->sendMessage($message, $context);
+            $aiPowered = true;
+        } else {
+            $response = getFallbackResponse($message);
+            $aiPowered = false;
+        }
+        $aiMessageId = $chatService->saveAiMessage($chatId, $response, [
+            'ai_powered' => $aiPowered,
+            'user_message_id' => $userMessageId
+        ]);
 
         echo json_encode([
             'response' => $response,
+            'chat_id' => $chatId,
+            'message_id' => $aiMessageId,
             'timestamp' => date('c'),
-            'ai_powered' => $openRouter->isConfigured()
+            'ai_powered' => $aiPowered
         ]);
         
     } catch (Exception $e) {
         error_log("Chat API Error: " . $e->getMessage());
         
-        // Fallback to keyword matching on error
+        if (isset($chatService) && $chatId) {
+            try {
+                $chatService->saveUserMessage($chatId, $message);
+            } catch (Exception $saveError) {
+                error_log("Failed to save user message: " . $saveError->getMessage());
+            }
+        }
         $response = getFallbackResponse($message);
         
         echo json_encode([
             'response' => $response,
+            'chat_id' => $chatId,
             'timestamp' => date('c'),
             'ai_powered' => false,
-            'fallback' => true
+            'fallback' => true,
+            'error' => 'AI service temporarily unavailable'
         ]);
     }
 }
