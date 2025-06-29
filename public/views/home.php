@@ -36,7 +36,7 @@ function serveHomePage(): void
                 margin: 0;
                 min-height: 100vh;
             }
-            .container { max-width: 600px; margin: 0 auto; }
+            .container { max-width: 700px; margin: 0 auto; }
             .logo { 
                 max-width: 200px; 
                 margin-bottom: 30px; 
@@ -70,11 +70,13 @@ function serveHomePage(): void
                 border-radius: 15px;
                 backdrop-filter: blur(10px);
                 border: 1px solid rgba(255,255,255,0.2);
+                text-align: left;
             }
             .integration-section h2 {
                 color: white;
                 margin-bottom: 15px;
                 font-size: 2em;
+                text-align: center;
             }
             .integration-section h3 {
                 color: white;
@@ -127,6 +129,17 @@ function serveHomePage(): void
                 font-size: 1.05em;
                 line-height: 1.6;
             }
+            .feature-highlight {
+                background: rgba(76, 175, 80, 0.2);
+                border: 1px solid rgba(76, 175, 80, 0.4);
+                padding: 15px;
+                border-radius: 8px;
+                margin: 20px 0;
+            }
+            .feature-highlight h4 {
+                color: #81c784;
+                margin-top: 0;
+            }
         </style>
         <script>
             function copyToClipboard(text) {
@@ -152,68 +165,66 @@ function serveHomePage(): void
             </div>
             
             <div class="integration-section">
-                <h2>🔧 Integración del Widget</h2>
+                <h2>Integración del Widget</h2>
                 <p>Para integrar el widget de chat en tu sitio web, añade el siguiente código antes del cierre de la etiqueta <code>&lt;/body&gt;</code>:</p>
                 
-                <h3>Paso 1: Configuración</h3>
+                <h3>Método Básico (sin contexto personalizado)</h3>
                 <div class="code-container">
-                    <button class="copy-btn" onclick="copyToClipboard(`window.chistaConfig = {
-    token: 'tu_token_aqui',
-    domain: 'tu-dominio.com'
-};`)">📋</button>
-                    <code>
-&lt;script&gt;<br>
-&nbsp;&nbsp;window.chistaConfig = {<br>
-&nbsp;&nbsp;&nbsp;&nbsp;token: 'tu_token_aqui',<br>
-&nbsp;&nbsp;&nbsp;&nbsp;domain: 'tu-dominio.com'<br>
-&nbsp;&nbsp;};<br>
-&lt;/script&gt;
-                    </code>
-                </div>
-                
-                <h3>Paso 2: Cargar el Widget</h3>
-                <div class="code-container">
-                    <button class="copy-btn" onclick="copyToClipboard(`<script src=\"<?= $_SERVER['HTTP_HOST'] ?? 'localhost' ?>/widget.js\"></script>`)">📋</button>
+                    <button class="copy-btn" onclick="copyToClipboard('<script src=&quot;<?= $_SERVER['HTTP_HOST'] ?? 'localhost' ?>/widget.js&quot;></script>')">Copiar</button>
                     <code>
 &lt;script src="<?= $_SERVER['HTTP_HOST'] ?? 'localhost' ?>/widget.js"&gt;&lt;/script&gt;
                     </code>
                 </div>
                 
+                <div class="feature-highlight">
+                    <h4>¡Nuevo! Contexto Personalizado</h4>
+                    <p>Ahora puedes proporcionar información específica sobre tu negocio para que el AI responda con conocimiento contextual:</p>
+                </div>
+                
+                <h3>Con Contexto Personalizado (Recomendado)</h3>
+                <div class="code-container">
+                    <button class="copy-btn" onclick="copyToClipboard('<script src=&quot;<?= $_SERVER['HTTP_HOST'] ?? 'localhost' ?>/widget.js&quot; data-context-src=&quot;mi-negocio.md&quot; data-title=&quot;Mi Asistente&quot;></script>')">Copiar</button>
+                    <code>
+&lt;script <br>
+&nbsp;&nbsp;src="<?= $_SERVER['HTTP_HOST'] ?? 'localhost' ?>/widget.js" <br>
+&nbsp;&nbsp;data-context-src="mi-negocio.md"<br>
+&nbsp;&nbsp;data-title="Mi Asistente"<br>
+&gt;&lt;/script&gt;
+                    </code>
+                </div>
+                
+                <h3>Usando URL Externa</h3>
+                <div class="code-container">
+                    <button class="copy-btn" onclick="copyToClipboard('<script src=&quot;<?= $_SERVER['HTTP_HOST'] ?? 'localhost' ?>/widget.js&quot; data-context-src=&quot;https://mi-sitio.com/contexto.md&quot; data-title=&quot;Mi Asistente&quot;></script>')">Copiar</button>
+                    <code>
+&lt;script <br>
+&nbsp;&nbsp;src="<?= $_SERVER['HTTP_HOST'] ?? 'localhost' ?>/widget.js" <br>
+&nbsp;&nbsp;data-context-src="https://mi-sitio.com/contexto.md"<br>
+&nbsp;&nbsp;data-title="Mi Asistente"<br>
+&gt;&lt;/script&gt;
+                    </code>
+                </div>
+                
+                <div class="steps">
+                    <h4>Parámetros disponibles:</h4>
+                    <ul>
+                        <li><strong>data-context-src</strong>: Archivo local (.md/.txt) o URL con información de tu negocio</li>
+                        <li><strong>data-title</strong>: Título personalizado para el chat</li>
+                    </ul>
+                </div>
+                
+                <div class="feature-highlight">
+                    <h4>Sistema de Whitelist</h4>
+                    <p>Solo los dominios autorizados pueden usar el widget. Configuración automática de CORS y protección 403 para dominios no permitidos.</p>
+                </div>
+                
                 <h3>Para React/Vue/Angular:</h3>
                 <div class="steps">
                     <ol>
-                        <li>Añade la configuración en tu archivo principal (index.html o app.js)</li>
-                        <li>Importa el widget en tu componente o página</li>
-                        <li>Llama a <code>window.ChistaWidget.init()</code> cuando necesites mostrarlo</li>
-                        <li>Usa <code>window.ChistaWidget.destroy()</code> para limpiarlo</li>
+                        <li>Añade el script con los parámetros de contexto</li>
+                        <li>El widget se inicializa automáticamente</li>
+                        <li>Usa <code>window.ChistaWidget</code> para control programático si es necesario</li>
                     </ol>
-                </div>
-                
-                <div class="code-container">
-                    <button class="copy-btn" onclick="copyToClipboard(`// React example
-useEffect(() => {
-    if (window.ChistaWidget) {
-        window.ChistaWidget.init();
-    }
-    return () => {
-        if (window.ChistaWidget) {
-            window.ChistaWidget.destroy();
-        }
-    };
-}, []);`)">📋</button>
-                    <code>
-// React example<br>
-useEffect(() => {<br>
-&nbsp;&nbsp;if (window.ChistaWidget) {<br>
-&nbsp;&nbsp;&nbsp;&nbsp;window.ChistaWidget.init();<br>
-&nbsp;&nbsp;}<br>
-&nbsp;&nbsp;return () => {<br>
-&nbsp;&nbsp;&nbsp;&nbsp;if (window.ChistaWidget) {<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;window.ChistaWidget.destroy();<br>
-&nbsp;&nbsp;&nbsp;&nbsp;}<br>
-&nbsp;&nbsp;};<br>
-}, []);
-                    </code>
                 </div>
             </div>
             
@@ -222,8 +233,12 @@ useEffect(() => {<br>
             </div>
         </div>
         
-        <!-- Load Chista Widget for Demo -->
-        <script src="/widget.js"></script>
+        <!-- Load Chista Widget for Demo with Context -->
+        <script 
+            src="/widget.js" 
+            data-context-src="chista.md"
+            data-title="Asistente Chista"
+        ></script>
     </body>
     </html>
     <?php

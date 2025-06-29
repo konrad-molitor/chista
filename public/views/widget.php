@@ -2,14 +2,48 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../../src/Security/WhitelistChecker.php';
+
 function serveWidget(): void
 {
+    // Check whitelist
+    $whitelist = new WhitelistChecker();
+    if (!$whitelist->isRefererAllowed()) {
+        $whitelist->sendForbiddenResponse();
+        return;
+    }
+
+    // Set CORS headers
+    foreach ($whitelist->getCorsHeaders() as $header => $value) {
+        header("$header: $value");
+    }
+
     header('Content-Type: application/javascript');
     ?>
 (function() {
     'use strict';
     
     const CHISTA_API_BASE = '<?= $_ENV['CHISTA_API_BASE'] ?? 'http://localhost:8080' ?>';
+    
+    // Extract parameters from script tag
+    const currentScript = document.currentScript || document.querySelector('script[src*="widget.js"]');
+    const contextSrc = currentScript ? currentScript.getAttribute('data-context-src') : null;
+    const widgetTitle = currentScript ? (currentScript.getAttribute('data-title') || 'Asistente Virtual') : 'Asistente Virtual';
+    
+    // Check if widget already exists to prevent duplicates
+    if (document.getElementById('chista-widget')) {
+        console.warn('Chista: Widget already initialized');
+        return;
+    }
+    
+    // Detect React/SPA environment
+    const isReact = !!(window.React || document.querySelector('[data-reactroot]') || document.querySelector('[data-react-checksum]'));
+    const isVue = !!(window.Vue);
+    const isAngular = !!(window.ng);
+    
+    if (isReact) {
+        console.log('Chista: React environment detected, using enhanced compatibility mode');
+    }
     
     const styles = `
         #chista-widget {
@@ -198,35 +232,61 @@ function serveWidget(): void
         }
         
         @keyframes chista-typing {
-            0%, 60%, 100% {
-                transform: translateY(0);
-                opacity: 0.5;
+            0%, 80%, 100% {
+                opacity: 0.3;
+                transform: scale(0.8);
             }
-            30% {
-                transform: translateY(-10px);
+            40% {
                 opacity: 1;
+                transform: scale(1);
             }
         }
         
-        @media (max-width: 480px) {
-            #chista-chat-window {
-                width: calc(100vw - 40px);
-                height: calc(100vh - 40px);
-                bottom: 20px;
-                right: 20px;
-                left: 20px;
-                top: 20px;
-            }
+        .chista-new-chat-button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+        
+        .chista-new-chat-button:hover {
+            background: rgba(255, 255, 255, 0.3);
         }
     `;
     
-    const styleSheet = document.createElement('style');
-    styleSheet.textContent = styles;
-    document.head.appendChild(styleSheet);
+    // Widget state
+    let isOpen = false;
+    let isLoading = false;
+    let currentChatId = null;
+    let messageHistory = [];
+    let isInitialized = false;
     
-    const widgetHTML = `
-        <div id="chista-widget">
-            <button id="chista-chat-button" aria-label="Abrir chat de soporte">
+    // Add styles to page
+    function addStyles() {
+        if (document.getElementById('chista-widget-styles')) {
+            return;
+        }
+        
+        const styleSheet = document.createElement('style');
+        styleSheet.id = 'chista-widget-styles';
+        styleSheet.textContent = styles;
+        document.head.appendChild(styleSheet);
+    }
+    
+    // Create widget elements
+    function createWidgetElements() {
+        if (document.getElementById('chista-widget')) {
+            return;
+        }
+        
+        const widget = document.createElement('div');
+        widget.id = 'chista-widget';
+        widget.innerHTML = `
+            <button id="chista-chat-button" title="Abrir chat">
                 <svg viewBox="0 0 24 24">
                     <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
                 </svg>
@@ -234,302 +294,309 @@ function serveWidget(): void
             
             <div id="chista-chat-window">
                 <div id="chista-chat-header">
-                    <div id="chista-chat-title">Soporte Chista</div>
-                    <div style="display: flex; gap: 10px;">
-                        <button id="chista-new-chat" aria-label="Nuevo chat" style="background: none; border: none; color: white; font-size: 14px; cursor: pointer; padding: 4px 8px; border-radius: 4px; background: rgba(255,255,255,0.2);">Nuevo</button>
-                        <button id="chista-chat-close" aria-label="Cerrar chat">&times;</button>
+                    <div id="chista-chat-title">${widgetTitle}</div>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <button class="chista-new-chat-button" id="chista-new-chat">Nuevo chat</button>
+                        <button id="chista-chat-close">&times;</button>
                     </div>
                 </div>
-                
-                <div id="chista-chat-messages">
-                    <div class="chista-message bot">
-                        <div class="chista-message-content">
-                            ¡Hola! Soy Chista, tu asistente de soporte. ¿En qué puedo ayudarte hoy?
-                        </div>
-                    </div>
-                </div>
-                
+                <div id="chista-chat-messages"></div>
                 <div id="chista-chat-input-container">
-                    <textarea id="chista-chat-input" placeholder="Escribe tu mensaje..." rows="1"></textarea>
-                    <button id="chista-chat-send" aria-label="Enviar mensaje">
-                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                    <input type="text" id="chista-chat-input" placeholder="Escribe tu mensaje...">
+                    <button id="chista-chat-send" title="Enviar">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
                         </svg>
                     </button>
                 </div>
             </div>
-        </div>
-    `;
-    
-    function isWidgetInitialized() {
-        return !!document.getElementById('chista-widget');
+        `;
+        
+        document.body.appendChild(widget);
     }
     
+    // Attach event listeners with protection against loss
     function attachEventListeners() {
         const chatButton = document.getElementById('chista-chat-button');
-        const chatWindow = document.getElementById('chista-chat-window');
         const chatClose = document.getElementById('chista-chat-close');
-        const chatNewChat = document.getElementById('chista-new-chat');
-        const chatInput = document.getElementById('chista-chat-input');
         const chatSend = document.getElementById('chista-chat-send');
+        const chatInput = document.getElementById('chista-chat-input');
+        const newChatButton = document.getElementById('chista-new-chat');
+        
+        if (chatButton && !chatButton.hasAttribute('data-chista-initialized')) {
+            chatButton.addEventListener('click', toggleChat);
+            chatButton.setAttribute('data-chista-initialized', 'true');
+        }
+        
+        if (chatClose && !chatClose.hasAttribute('data-chista-initialized')) {
+            chatClose.addEventListener('click', toggleChat);
+            chatClose.setAttribute('data-chista-initialized', 'true');
+        }
+        
+        if (newChatButton && !newChatButton.hasAttribute('data-chista-initialized')) {
+            newChatButton.addEventListener('click', startNewChat);
+            newChatButton.setAttribute('data-chista-initialized', 'true');
+        }
+        
+        if (chatSend && !chatSend.hasAttribute('data-chista-initialized')) {
+            chatSend.addEventListener('click', () => {
+                sendMessage(chatInput.value);
+            });
+            chatSend.setAttribute('data-chista-initialized', 'true');
+        }
+        
+        if (chatInput && !chatInput.hasAttribute('data-chista-initialized')) {
+            chatInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage(chatInput.value);
+                }
+            });
+            chatInput.setAttribute('data-chista-initialized', 'true');
+        }
+    }
+    
+    // Load saved session
+    function loadSession() {
+        const savedChatId = localStorage.getItem('chista_chat_id');
+        if (savedChatId) {
+            currentChatId = parseInt(savedChatId);
+            loadChatHistory();
+        }
+    }
+    
+    function saveSession() {
+        if (currentChatId) {
+            localStorage.setItem('chista_chat_id', currentChatId.toString());
+        }
+    }
+    
+    function startNewChat() {
+        currentChatId = null;
+        messageHistory = [];
+        localStorage.removeItem('chista_chat_id');
         const chatMessages = document.getElementById('chista-chat-messages');
-        
-        if (!chatButton || !chatWindow || !chatInput || !chatSend || !chatMessages) {
-            return false;
+        if (chatMessages) {
+            chatMessages.innerHTML = '';
         }
+        addWelcomeMessage();
+    }
+    
+    function addWelcomeMessage() {
+        const welcomeMsg = contextSrc 
+            ? '¡Hola! Soy tu asistente virtual. ¿En qué puedo ayudarte hoy?'
+            : '¡Hola! ¿En qué puedo ayudarte?';
+        addMessage(welcomeMsg, 'bot');
+    }
+    
+    function toggleChat() {
+        isOpen = !isOpen;
+        const chatWindow = document.getElementById('chista-chat-window');
+        const chatInput = document.getElementById('chista-chat-input');
         
-        if (chatButton.hasAttribute('data-chista-initialized')) {
-            return true;
-        }
-        
-        let isOpen = false;
-        let currentChatId = localStorage.getItem('chista_chat_id') || null;
-        
-        function toggleChat() {
-            isOpen = !isOpen;
+        if (chatWindow) {
             chatWindow.style.display = isOpen ? 'flex' : 'none';
-            if (isOpen) {
-                chatInput.focus();
-                if (currentChatId) {
-                    loadChatHistory();
-                }
+        }
+        
+        if (isOpen && messageHistory.length === 0) {
+            addWelcomeMessage();
+        }
+        
+        if (isOpen && chatInput) {
+            chatInput.focus();
+        }
+    }
+    
+    function addMessage(content, sender) {
+        const chatMessages = document.getElementById('chista-chat-messages');
+        if (!chatMessages) return;
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `chista-message ${sender}`;
+        messageDiv.innerHTML = `<div class="chista-message-content">${content}</div>`;
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        messageHistory.push({ content, sender });
+    }
+    
+    function addTypingIndicator() {
+        const chatMessages = document.getElementById('chista-chat-messages');
+        if (!chatMessages) return;
+        
+        const typingDiv = document.createElement('div');
+        typingDiv.className = 'chista-message bot';
+        typingDiv.innerHTML = `
+            <div class="chista-typing">
+                <div class="chista-typing-dot"></div>
+                <div class="chista-typing-dot"></div>
+                <div class="chista-typing-dot"></div>
+            </div>
+        `;
+        typingDiv.id = 'chista-typing-indicator';
+        chatMessages.appendChild(typingDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+    function removeTypingIndicator() {
+        const indicator = document.getElementById('chista-typing-indicator');
+        if (indicator) {
+            indicator.remove();
+        }
+    }
+    
+    async function sendMessage(message) {
+        if (isLoading || !message.trim()) return;
+        
+        isLoading = true;
+        const chatSend = document.getElementById('chista-chat-send');
+        const chatInput = document.getElementById('chista-chat-input');
+        
+        if (chatSend) chatSend.disabled = true;
+        
+        addMessage(message, 'user');
+        if (chatInput) chatInput.value = '';
+        addTypingIndicator();
+        
+        try {
+            const payload = {
+                message: message,
+                chat_id: currentChatId,
+                token: 'widget_token',
+                domain: window.location.hostname,
+                user_session_id: 'widget_' + Date.now()
+            };
+            
+            if (contextSrc) {
+                payload.context_src = contextSrc;
             }
-        }
-        
-        function addMessage(content, isUser = false) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `chista-message ${isUser ? 'user' : 'bot'}`;
-            messageDiv.innerHTML = `<div class="chista-message-content">${content}</div>`;
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-        
-        function showTyping() {
-            const typingDiv = document.createElement('div');
-            typingDiv.className = 'chista-message bot';
-            typingDiv.id = 'chista-typing-indicator';
-            typingDiv.innerHTML = `
-                <div class="chista-typing">
-                    <div class="chista-typing-dot"></div>
-                    <div class="chista-typing-dot"></div>
-                    <div class="chista-typing-dot"></div>
-                </div>
-            `;
-            chatMessages.appendChild(typingDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-        
-        function hideTyping() {
-            const typingIndicator = document.getElementById('chista-typing-indicator');
-            if (typingIndicator) {
-                typingIndicator.remove();
-            }
-        }
-        
-        async function sendMessage(message) {
-            try {
-                const requestBody = {
-                    message: message,
-                    timestamp: new Date().toISOString()
-                };
-                
-                if (currentChatId) {
-                    requestBody.chat_id = currentChatId;
-                }
-                
-                // Add configuration if available
-                if (window.chistaConfig) {
-                    if (window.chistaConfig.token) {
-                        requestBody.token = window.chistaConfig.token;
-                    }
-                    if (window.chistaConfig.domain) {
-                        requestBody.domain = window.chistaConfig.domain;
-                    }
-                }
-                
-                const response = await fetch(`${CHISTA_API_BASE}/api/chat`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(requestBody)
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const data = await response.json();
+            
+            const response = await fetch(CHISTA_API_BASE + '/api/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                removeTypingIndicator();
+                addMessage(data.response, 'bot');
                 
                 if (data.chat_id) {
                     currentChatId = data.chat_id;
-                    localStorage.setItem('chista_chat_id', currentChatId);
-                    console.log('Chista: Chat ID set to', currentChatId);
+                    saveSession();
                 }
-                
-                return data.response || 'Lo siento, no pude procesar tu mensaje. Inténtalo de nuevo.';
-            } catch (error) {
-                console.error('Chista API Error:', error);
-                return 'Lo siento, hay un problema con la conexión. Inténtalo más tarde.';
+            } else {
+                throw new Error(data.error || 'Error en la respuesta');
             }
+        } catch (error) {
+            removeTypingIndicator();
+            addMessage('Lo siento, ha ocurrido un error. Por favor, inténtalo de nuevo.', 'bot');
+            console.error('Chat error:', error);
+        } finally {
+            isLoading = false;
+            if (chatSend) chatSend.disabled = false;
+            if (chatInput) chatInput.focus();
         }
+    }
+    
+    async function loadChatHistory() {
+        if (!currentChatId) return;
         
-        async function handleSubmit() {
-            const message = chatInput.value.trim();
-            if (!message) return;
+        try {
+            const response = await fetch(CHISTA_API_BASE + `/api/chat/${currentChatId}/history`);
+            const data = await response.json();
             
-            addMessage(message, true);
-            chatInput.value = '';
-            chatSend.disabled = true;
-            
-            showTyping();
-            const response = await sendMessage(message);
-            hideTyping();
-            addMessage(response);
-            chatSend.disabled = false;
-            chatInput.focus();
-        }
-        
-        function autoResize() {
-            chatInput.style.height = 'auto';
-            chatInput.style.height = Math.min(chatInput.scrollHeight, 100) + 'px';
-        }
-        
-        async function loadChatHistory() {
-            if (!currentChatId) return;
-            
-            try {
-                const response = await fetch(`${CHISTA_API_BASE}/api/chat/${currentChatId}/history`);
-                
-                if (!response.ok) {
-                    console.warn('Chista: Could not load chat history');
-                    return;
+            if (response.ok && data.messages) {
+                const chatMessages = document.getElementById('chista-chat-messages');
+                if (chatMessages) {
+                    chatMessages.innerHTML = '';
                 }
+                messageHistory = [];
                 
-                const data = await response.json();
-                
-                const welcomeMessage = chatMessages.querySelector('.chista-message');
-                chatMessages.innerHTML = '';
-                if (welcomeMessage) {
-                    chatMessages.appendChild(welcomeMessage);
-                }
                 data.messages.forEach(msg => {
-                    const isUser = msg.sender_type === 'user';
-                    addMessage(msg.content, isUser);
+                    const sender = msg.sender_type === 'user' ? 'user' : 'bot';
+                    addMessage(msg.content, sender);
                 });
                 
-                console.log('Chista: Loaded', data.messages.length, 'historical messages');
-                
-            } catch (error) {
-                console.warn('Chista: Failed to load chat history:', error);
-            }
-        }
-        
-        function startNewChat() {
-            currentChatId = null;
-            localStorage.removeItem('chista_chat_id');
-            
-            const welcomeMessage = chatMessages.querySelector('.chista-message');
-            chatMessages.innerHTML = '';
-            if (welcomeMessage) {
-                chatMessages.appendChild(welcomeMessage);
-            }
-            
-            console.log('Chista: Started new chat');
-        }
-        
-        chatButton.addEventListener('click', toggleChat);
-        chatClose.addEventListener('click', toggleChat);
-        if (chatNewChat) {
-            chatNewChat.addEventListener('click', startNewChat);
-        }
-        chatSend.addEventListener('click', handleSubmit);
-        
-        chatInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSubmit();
-            }
-        });
-        
-        chatInput.addEventListener('input', autoResize);
-        
-        document.addEventListener('click', (e) => {
-            if (isOpen && !chatWindow.contains(e.target) && !chatButton.contains(e.target)) {
-                toggleChat();
-            }
-        });
-        
-        chatButton.setAttribute('data-chista-initialized', 'true');
-        chatClose.setAttribute('data-chista-initialized', 'true');
-        chatSend.setAttribute('data-chista-initialized', 'true');
-        
-        console.log('Chista widget loaded successfully!');
-        return true;
-    }
-    
-    function init() {
-        if (isWidgetInitialized()) {
-            return;
-        }
-        
-        document.body.insertAdjacentHTML('beforeend', widgetHTML);
-        
-        const success = attachEventListeners();
-        
-        if (!success) {
-            setTimeout(() => {
-                if (!attachEventListeners()) {
-                    console.error('Chista: Failed to initialize widget after retry');
+                if (messageHistory.length === 0) {
+                    addWelcomeMessage();
                 }
-            }, 100);
+            }
+        } catch (error) {
+            console.error('Error loading chat history:', error);
+            addWelcomeMessage();
         }
     }
     
+    // Widget destruction function
+    function destroyWidget() {
+        const widget = document.getElementById('chista-widget');
+        const styles = document.getElementById('chista-widget-styles');
+        
+        if (widget) {
+            document.body.removeChild(widget);
+        }
+        if (styles) {
+            document.head.removeChild(styles);
+        }
+        
+        isInitialized = false;
+    }
+    
+    // Enhanced initialization for React compatibility
     function initWidget() {
-        if (isWidgetInitialized()) {
+        if (isInitialized || document.getElementById('chista-widget')) {
+            console.warn('Chista: Widget already initialized');
             return;
         }
         
-        const isReact = !!(window.React || document.querySelector('[data-reactroot]') || document.querySelector('[data-react-app]'));
-        const isVue = !!(window.Vue);
-        const isAngular = !!(window.ng);
+        console.log('Chista: Initializing widget...');
         
-        if (isReact || isVue || isAngular) {
-            setTimeout(() => {
-                init();
+        // Add delay for React environments
+        const initDelay = isReact ? 200 : 50;
+        
+        setTimeout(() => {
+            addStyles();
+            createWidgetElements();
+            attachEventListeners();
+            loadSession();
+            isInitialized = true;
+            
+            // Additional verification for React environments
+            if (isReact) {
                 setTimeout(() => {
                     const button = document.getElementById('chista-chat-button');
                     if (button && !button.hasAttribute('data-chista-initialized')) {
+                        console.warn('Chista: Re-initializing event listeners for React compatibility');
                         attachEventListeners();
                     }
-                }, 200);
-            }, 150);
-        } else {
-            init();
-        }
+                }, 100);
+            }
+            
+            console.log('Chista: Widget initialized successfully');
+        }, initDelay);
     }
     
-    function destroyWidget() {
-        const widget = document.getElementById('chista-widget');
-        if (widget) {
-            widget.remove();
-            console.log('Chista widget destroyed');
-        }
-    }
-    
+    // Global API for React applications
     window.ChistaWidget = {
         init: initWidget,
         destroy: destroyWidget,
-        isInitialized: isWidgetInitialized,
-        version: '1.0.0'
+        isInitialized: () => isInitialized,
+        toggle: toggleChat,
+        newChat: startNewChat
     };
     
+    // Enhanced initialization logic
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initWidget);
     } else if (document.readyState === 'interactive' || document.readyState === 'complete') {
-        setTimeout(initWidget, 50);
+        initWidget();
     }
+    
 })();
-    <?php
+<?php
 } 

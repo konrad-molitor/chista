@@ -5,32 +5,47 @@ declare(strict_types=1);
 class OpenRouterService
 {
     private string $apiKey;
-    private string $model;
     private string $baseUrl;
+    private string $model;
 
     public function __construct()
     {
         $this->apiKey = $_ENV['OPENROUTER_API_KEY'] ?? '';
-        $this->model = $_ENV['OPENROUTER_MODEL'] ?? 'gpt-3.5-turbo';
         $this->baseUrl = $_ENV['OPENROUTER_BASE_URL'] ?? 'https://openrouter.ai/api/v1';
-        
-        if (empty($this->apiKey)) {
-            throw new Exception('OPENROUTER_API_KEY not configured');
-        }
+        $this->model = $_ENV['OPENROUTER_MODEL'] ?? 'anthropic/claude-3-haiku';
     }
 
-    public function sendMessage(string $message, array $context = []): string
+    public function isConfigured(): bool
     {
-        $messages = [
-            [
-                'role' => 'system',
-                'content' => 'Eres Chista, un asistente de soporte al cliente inteligente y útil. Responde siempre en español de manera amigable y profesional. Ayuda a los usuarios con sus consultas sobre productos y servicios. Mantén el contexto de la conversación anterior.'
-            ]
-        ];
+        return !empty($this->apiKey);
+    }
 
-        foreach ($context as $msg) {
-            $messages[] = $msg;
+    public function sendMessage(string $message, array $context = [], ?string $externalContext = null): string
+    {
+        $messages = [];
+        
+        // Add system message with external context if provided
+        if ($externalContext) {
+            $messages[] = [
+                'role' => 'system',
+                'content' => "Contexto del sitio web:\n\n" . $externalContext . "\n\nPor favor, responde basándote en este contexto y siempre en español."
+            ];
+        } else {
+            $messages[] = [
+                'role' => 'system',
+                'content' => 'Eres un asistente virtual útil que responde en español. Ayuda a los usuarios con sus consultas de manera amigable y profesional.'
+            ];
         }
+
+        // Add conversation history
+        foreach ($context as $msg) {
+            $messages[] = [
+                'role' => $msg['sender_type'] === 'user' ? 'user' : 'assistant',
+                'content' => $msg['content']
+            ];
+        }
+
+        // Add current message
         $messages[] = [
             'role' => 'user',
             'content' => $message
@@ -43,64 +58,68 @@ class OpenRouterService
             'temperature' => 0.7
         ];
 
-        $response = $this->makeRequest('/chat/completions', $data);
-        
-        if (isset($response['choices'][0]['message']['content'])) {
-            return trim($response['choices'][0]['message']['content']);
-        }
-
-        throw new Exception('Invalid response from OpenRouter API');
-    }
-
-    private function makeRequest(string $endpoint, array $data): array
-    {
-        $url = $this->baseUrl . $endpoint;
-        
-        $headers = [
-            'Content-Type: application/json',
-            'Authorization: Bearer ' . $this->apiKey,
-            'HTTP-Referer: ' . ($_ENV['APP_URL'] ?? 'http://localhost:8080'),
-            'X-Title: Chista AI Support'
-        ];
-
         $ch = curl_init();
         curl_setopt_array($ch, [
-            CURLOPT_URL => $url,
+            CURLOPT_URL => $this->baseUrl . '/chat/completions',
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => json_encode($data),
-            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'Authorization: Bearer ' . $this->apiKey,
+                'HTTP-Referer: ' . ($_SERVER['HTTP_REFERER'] ?? 'http://localhost'),
+                'X-Title: Chista AI Assistant'
+            ],
             CURLOPT_TIMEOUT => 30,
-            CURLOPT_SSL_VERIFYPEER => true
         ]);
 
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         
         if (curl_errno($ch)) {
-            $error = curl_error($ch);
-            curl_close($ch);
-            throw new Exception("cURL Error: {$error}");
+            throw new Exception('Curl error: ' . curl_error($ch));
         }
         
         curl_close($ch);
 
         if ($httpCode !== 200) {
-            error_log("OpenRouter API Error: HTTP {$httpCode} - {$response}");
-            throw new Exception("OpenRouter API returned HTTP {$httpCode}");
+            throw new Exception("OpenRouter API error: HTTP $httpCode");
         }
 
-        $decoded = json_decode($response, true);
+        $result = json_decode($response, true);
         
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new Exception('Invalid JSON response from OpenRouter API');
+        if (!$result || !isset($result['choices'][0]['message']['content'])) {
+            throw new Exception('Invalid response from OpenRouter API');
         }
 
-        return $decoded;
+        return trim($result['choices'][0]['message']['content']);
     }
 
-    public function isConfigured(): bool
+    public function getAvailableModels(): array
     {
-        return !empty($this->apiKey);
+        if (!$this->isConfigured()) {
+            return [];
+        }
+
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $this->baseUrl . '/models',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => [
+                'Authorization: Bearer ' . $this->apiKey,
+            ],
+            CURLOPT_TIMEOUT => 10,
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpCode === 200 && $response) {
+            $result = json_decode($response, true);
+            return $result['data'] ?? [];
+        }
+
+        return [];
     }
 } 

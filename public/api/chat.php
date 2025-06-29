@@ -4,9 +4,23 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/openrouter.php';
 require_once __DIR__ . '/chat-service.php';
+require_once __DIR__ . '/../../src/Security/WhitelistChecker.php';
+require_once __DIR__ . '/../../src/Context/ContextLoader.php';
 
 function handleChatRequest(string $method): void
 {
+    // Check whitelist first
+    $whitelist = new WhitelistChecker();
+    if (!$whitelist->isRefererAllowed()) {
+        $whitelist->sendForbiddenResponse();
+        return;
+    }
+
+    // Set CORS headers
+    foreach ($whitelist->getCorsHeaders() as $header => $value) {
+        header("$header: $value");
+    }
+
     if ($method !== 'POST') {
         http_response_code(405);
         echo json_encode(['error' => 'Method not allowed']);
@@ -19,6 +33,9 @@ function handleChatRequest(string $method): void
     $token = $input['token'] ?? 'default';
     $domain = $input['domain'] ?? 'localhost';
     $userSessionId = $input['user_session_id'] ?? null;
+    $contextSrc = $input['context_src'] ?? null;
+    
+
 
     if (empty($message)) {
         http_response_code(400);
@@ -29,6 +46,7 @@ function handleChatRequest(string $method): void
     try {
         $chatService = new ChatService();
         $openRouter = new OpenRouterService();
+        $contextLoader = new ContextLoader();
         
         if (!$chatId) {
             $chatId = $chatService->createChat($token, $domain, $userSessionId);
@@ -51,7 +69,15 @@ function handleChatRequest(string $method): void
                 array_pop($context);
             }
             
-            $response = $openRouter->sendMessage($message, $context);
+            $externalContext = null;
+            if ($contextSrc) {
+                $externalContext = $contextLoader->loadContext($contextSrc);
+                if (!$externalContext) {
+                    error_log("Failed to load context from: " . $contextSrc);
+                }
+            }
+            
+            $response = $openRouter->sendMessage($message, $context, $externalContext);
             $aiPowered = true;
         } else {
             $response = getFallbackResponse($message);
@@ -59,7 +85,8 @@ function handleChatRequest(string $method): void
         }
         $aiMessageId = $chatService->saveAiMessage($chatId, $response, [
             'ai_powered' => $aiPowered,
-            'user_message_id' => $userMessageId
+            'user_message_id' => $userMessageId,
+            'context_src' => $contextSrc
         ]);
 
         echo json_encode([

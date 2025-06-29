@@ -20,7 +20,7 @@ function handleApiRequest(string $uri, string $method): void
     
     switch (true) {
         case $path === '/status':
-            handleStatusRequest();
+            handleStatusRequest($method);
             break;
             
         case $path === '/chat':
@@ -29,8 +29,8 @@ function handleApiRequest(string $uri, string $method): void
             
         case str_starts_with($path, '/chat/') && str_contains($path, '/history'):
             if (preg_match('/\/chat\/(\d+)\/history/', $path, $matches)) {
-                $params['chat_id'] = $matches[1];
-                handleHistoryRequest($method, $params);
+                $_GET['chat_id'] = $matches[1];
+                handleHistoryRequest($method);
             } else {
                 http_response_code(400);
                 echo json_encode(['error' => 'Invalid chat history URL format']);
