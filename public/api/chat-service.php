@@ -131,15 +131,8 @@ class ChatService
         $context = [];
         
         foreach ($messages as $message) {
-            $role = match ($message['sender_type']) {
-                'user' => 'user',
-                'ai' => 'assistant',
-                'operator' => 'assistant',
-                default => 'user'
-            };
-            
             $context[] = [
-                'role' => $role,
+                'sender_type' => $message['sender_type'],
                 'content' => $message['content']
             ];
         }
