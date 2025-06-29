@@ -170,9 +170,9 @@ function serveHomePage(): void
                 
                 <h3>Método Básico (sin contexto personalizado)</h3>
                 <div class="code-container">
-                    <button class="copy-btn" onclick="copyToClipboard('<script src=&quot;<?= $_SERVER['HTTP_HOST'] ?? 'localhost' ?>/widget.js&quot;></script>')">Copiar</button>
+                    <button class="copy-btn" onclick="copyToClipboard('<script src=&quot;https://chista.ivaliev.dev/widget.js&quot;></script>')">Copiar</button>
                     <code>
-&lt;script src="<?= $_SERVER['HTTP_HOST'] ?? 'localhost' ?>/widget.js"&gt;&lt;/script&gt;
+&lt;script src="https://chista.ivaliev.dev/widget.js"&gt;&lt;/script&gt;
                     </code>
                 </div>
                 
@@ -183,10 +183,10 @@ function serveHomePage(): void
                 
                 <h3>Con Contexto Personalizado (Recomendado)</h3>
                 <div class="code-container">
-                    <button class="copy-btn" onclick="copyToClipboard('<script src=&quot;<?= $_SERVER['HTTP_HOST'] ?? 'localhost' ?>/widget.js&quot; data-context-src=&quot;mi-negocio.md&quot; data-title=&quot;Mi Asistente&quot;></script>')">Copiar</button>
+                    <button class="copy-btn" onclick="copyToClipboard('<script src=&quot;https://chista.ivaliev.dev/widget.js&quot; data-context-src=&quot;mi-negocio.md&quot; data-title=&quot;Mi Asistente&quot;></script>')">Copiar</button>
                     <code>
 &lt;script <br>
-&nbsp;&nbsp;src="<?= $_SERVER['HTTP_HOST'] ?? 'localhost' ?>/widget.js" <br>
+&nbsp;&nbsp;src="https://chista.ivaliev.dev/widget.js" <br>
 &nbsp;&nbsp;data-context-src="mi-negocio.md"<br>
 &nbsp;&nbsp;data-title="Mi Asistente"<br>
 &gt;&lt;/script&gt;
@@ -195,10 +195,10 @@ function serveHomePage(): void
                 
                 <h3>Usando URL Externa</h3>
                 <div class="code-container">
-                    <button class="copy-btn" onclick="copyToClipboard('<script src=&quot;<?= $_SERVER['HTTP_HOST'] ?? 'localhost' ?>/widget.js&quot; data-context-src=&quot;https://mi-sitio.com/contexto.md&quot; data-title=&quot;Mi Asistente&quot;></script>')">Copiar</button>
+                    <button class="copy-btn" onclick="copyToClipboard('<script src=&quot;https://chista.ivaliev.dev/widget.js&quot; data-context-src=&quot;https://mi-sitio.com/contexto.md&quot; data-title=&quot;Mi Asistente&quot;></script>')">Copiar</button>
                     <code>
 &lt;script <br>
-&nbsp;&nbsp;src="<?= $_SERVER['HTTP_HOST'] ?? 'localhost' ?>/widget.js" <br>
+&nbsp;&nbsp;src="https://chista.ivaliev.dev/widget.js" <br>
 &nbsp;&nbsp;data-context-src="https://mi-sitio.com/contexto.md"<br>
 &nbsp;&nbsp;data-title="Mi Asistente"<br>
 &gt;&lt;/script&gt;
@@ -214,8 +214,8 @@ function serveHomePage(): void
                 </div>
                 
                 <div class="feature-highlight">
-                    <h4>Sistema de Whitelist</h4>
-                    <p>Solo los dominios autorizados pueden usar el widget. Configuración automática de CORS y protección 403 para dominios no permitidos.</p>
+                    <h4>Seguridad y CORS</h4>
+                    <p>Configuración automática de headers CORS y protección de seguridad integrada para una integración segura en cualquier sitio web.</p>
                 </div>
                 
                 <h3>Para React/Vue/Angular:</h3>

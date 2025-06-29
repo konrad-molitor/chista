@@ -3,146 +3,168 @@
   
   # Chista
   
-  AI-powered customer support chat system named after the Zoroastrian deity of wisdom and knowledge.
+  Sistema de soporte al cliente con IA, nombrado en honor a la deidad zoroástrica de la sabiduría y el conocimiento.
 </div>
 
-## Description
+## Descripción
 
-Chista is an embeddable customer support chat widget that uses an AI agent for automatic responses and allows human operators to join conversations when needed.
+Chista es un widget de chat de soporte al cliente embebible que utiliza un agente de IA para respuestas automáticas y permite que operadores humanos se unan a las conversaciones cuando sea necesario.
 
-### Key Features
+### Características Principales
 
-- 🤖 **AI Agent**: Automatic responses via OpenRouter API
-- 💬 **Live Operators**: Human operator can join conversations
-- 🔧 **Embeddable Widget**: Easy integration into any website
-- 🗄️ **Message History**: All chats saved in MySQL database
-- 🔐 **Security**: Token-based authentication with domain protection
-- 📊 **Operator Panel**: Convenient interface for chat management
+- 🤖 **Agente AI**: Respuestas automáticas vía OpenRouter API
+- 💬 **Operadores en Vivo**: Operadores humanos pueden unirse a conversaciones
+- 🔧 **Widget Embebible**: Fácil integración en cualquier sitio web
+- 🗄️ **Historial de Mensajes**: Todos los chats guardados en MySQL
+- 🔐 **Seguridad**: Autenticación basada en tokens con protección CORS
+- 📊 **Panel de Operador**: Interfaz conveniente para gestión de chats
+- 🎯 **Contexto Personalizado**: Soporte para información específica del negocio
 
-## Technologies
+## Tecnologías
 
-- **Backend**: PHP-FPM
-- **Frontend**: jQuery + Bootstrap
-- **Database**: MySQL
-- **AI**: OpenRouter API
-- **Containerization**: Docker
+- **Backend**: PHP 8.1+ con FPM
+- **Frontend**: JavaScript vanilla + CSS moderno
+- **Base de Datos**: MySQL 8.0
+- **IA**: OpenRouter API (Mistral)
+- **Infraestructura**: Fly.io
 
-## Quick Start
+## Acceso en Línea
 
-### Requirements
+- **Página Principal**: https://chista.ivaliev.dev/
+- **Panel de Operador**: https://chista.ivaliev.dev/operator/
+- **API Status**: https://chista.ivaliev.dev/api/status
+- **Widget de Chat**: https://chista.ivaliev.dev/widget.js
 
-- Docker and Docker Compose
-- PHP 8.1+
-- Composer
+## Integración
 
-### Installation
+### Método Básico
 
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd chista
-```
-
-2. Copy environment file:
-```bash
-cp .env.example .env
-```
-
-3. Configure variables in `.env`:
-```env
-DB_HOST=mysql
-DB_NAME=chista
-DB_USER=chista_user
-DB_PASSWORD=secure_password
-OPENROUTER_API_KEY=your_api_key
-```
-
-4. Start containers:
-```bash
-docker-compose up -d
-```
-
-5. Install dependencies:
-```bash
-docker-compose exec php composer install
-```
-
-6. Run migrations:
-```bash
-docker-compose exec php php src/migrations/migrate.php
-```
-
-### Usage
-
-- **Chat Widget**: `http://localhost/widget.js`
-- **Operator Panel**: `http://localhost/operator/`
-- **API**: `http://localhost/api/`
-
-## Integration
-
-To embed the widget on your website:
+Para embeber el widget en tu sitio web, añade antes del cierre de `</body>`:
 
 ```html
-<script>
-  window.chistaConfig = {
-    token: 'your_token_here',
-    domain: 'your-domain.com'
-  };
-</script>
-<script src="http://your-chista-domain.com/widget.js"></script>
+<script src="https://chista.ivaliev.dev/widget.js"></script>
 ```
 
-## Development
+### Con Contexto Personalizado (Recomendado)
 
-### Project Structure
+```html
+<script 
+  src="https://chista.ivaliev.dev/widget.js"
+  data-context-src="mi-negocio.md"
+  data-title="Mi Asistente"
+></script>
+```
+
+### Usando URL Externa
+
+```html
+<script 
+  src="https://chista.ivaliev.dev/widget.js"
+  data-context-src="https://mi-sitio.com/contexto.md"
+  data-title="Mi Asistente"
+></script>
+```
+
+### Parámetros Disponibles
+
+- `data-context-src`: Archivo local (.md/.txt) o URL con información de tu negocio
+- `data-title`: Título personalizado para el chat
+
+## API Endpoints
+
+### Endpoints Principales
+
+- `GET /api/status` - Estado del sistema
+- `POST /api/chat` - Enviar mensaje al chat
+- `GET /api/chat/{chatId}/history` - Obtener historial de chat
+- `POST /api/chat/{chatId}/request-human` - Solicitar operador humano
+- `GET /api/operator/chats` - Lista de chats para operador
+
+### Ejemplo de Uso
+
+```javascript
+// Enviar mensaje
+const response = await fetch('https://chista.ivaliev.dev/api/chat', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    message: 'Hola, necesito ayuda',
+    chat_id: 1
+  })
+});
+
+const data = await response.json();
+```
+
+## Estructura del Proyecto
 
 ```
 chista/
-├── public/              # Web root
-├── src/                 # PHP source code
-├── assets/              # CSS, JS, images
-├── config/              # Configuration files
-├── database/            # Migrations and schemas
-└── docker/              # Docker configuration
+├── public/
+│   ├── api/             # API endpoints
+│   ├── views/           # Páginas HTML
+│   ├── assets/          # CSS, JS, imágenes
+│   └── index.php        # Punto de entrada
+├── src/
+│   ├── Database/        # Conexión a BD
+│   ├── Security/        # Autenticación y CORS
+│   └── Context/         # Carga de contexto
+├── database/
+│   └── migrations/      # Migraciones de BD
+└── docker/              # Configuración Docker
 ```
 
-### Development Commands
+## Características Técnicas
 
-```bash
-# Start in development mode
-docker-compose up
+### Base de Datos
 
-# View logs
-docker-compose logs -f php
+- **MySQL 8.0** en Fly.io
+- Tablas: `chats`, `messages`, `operators`, `tokens`, `rate_limits`
+- Conexión segura vía red interna
 
-# Connect to PHP container
-docker-compose exec php bash
+### IA y Procesamiento
 
-# Run migrations
-docker-compose exec php php src/migrations/migrate.php
+- **OpenRouter API** con modelo Mistral
+- Contexto personalizable por negocio
+- Rate limiting por IP
+- Respuestas en español
 
-# Create new token
-docker-compose exec php php src/cli/create-token.php --project="Project Name" --domain="example.com"
-```
+### Seguridad
 
-## API
+- Headers CORS configurados automáticamente
+- Protección contra spam con rate limiting
+- Validación de entrada sanitizada
+- Logs de seguridad
 
-### Main Endpoints
+## Estado del Sistema
 
-- `POST /api/chat/start` - Start new chat
-- `POST /api/chat/message` - Send message
-- `GET /api/chat/history/{chatId}` - Get chat history
-- `POST /api/chat/request-human` - Request human operator
-- `GET /api/operator/chats` - List chats for operator
+Sistema desplegado y operativo en Fly.io:
 
-## License
+- ✅ **Aplicación**: https://chista.ivaliev.dev/
+- ✅ **Base de Datos**: MySQL conectada
+- ✅ **IA**: OpenRouter configurado
+- ✅ **API**: Todos los endpoints operativos
+- ✅ **SSL**: Certificado Let's Encrypt activo
+
+## Monitoreo
+
+El sistema incluye:
+
+- Endpoint de salud en `/api/status`
+- Logs automáticos de errores
+- Monitoreo de conexión a BD
+- Verificación de API de IA
+
+## Licencia
 
 MIT License
 
-## Support
+## Soporte
 
-For questions and support, please create an issue in this repository.
+Para preguntas y soporte, por favor crea un issue en este repositorio.
 
 ---
 
-*"Chista illuminates the path to knowledge through conversation"* 
+*"Chista ilumina el camino hacia el conocimiento a través de la conversación"* 

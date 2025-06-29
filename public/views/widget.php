@@ -23,7 +23,7 @@ function serveWidget(): void
 (function() {
     'use strict';
     
-    const CHISTA_API_BASE = '<?= $_ENV['CHISTA_API_BASE'] ?? 'http://localhost:8080' ?>';
+    const CHISTA_API_BASE = '<?= $_ENV['CHISTA_API_BASE'] ?? 'https://' . $_SERVER['HTTP_HOST'] ?>';
     
     // Extract parameters from script tag
     const currentScript = document.currentScript || document.querySelector('script[src*="widget.js"]');

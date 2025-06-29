@@ -1,0 +1,32 @@
+app = "chista"
+primary_region = "mia"
+
+[build]
+
+[http_service]
+  internal_port = 80
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[[http_service.checks]]
+  interval = "15s"
+  grace_period = "10s"
+  method = "GET"
+  path = "/api/status"
+  protocol = "http"
+  timeout = "10s"
+  tls_skip_verify = false
+  [http_service.checks.headers]
+    User-Agent = "Fly.io-HealthCheck"
+
+[env]
+  APP_ENV = "production"
+  LOG_LEVEL = "info"
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1 

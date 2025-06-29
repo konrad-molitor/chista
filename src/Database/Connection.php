@@ -20,13 +20,18 @@ class Connection
         return self::$instance;
     }
     
+    public function getConnection(): PDO
+    {
+        return self::getInstance();
+    }
+    
     private static function createConnection(): PDO
     {
-        $host = $_ENV['DB_HOST'] ?? 'localhost';
-        $port = $_ENV['DB_PORT'] ?? '3306';
-        $database = $_ENV['DB_NAME'] ?? 'chista';
-        $username = $_ENV['DB_USER'] ?? 'root';
-        $password = $_ENV['DB_PASSWORD'] ?? '';
+        $host = getenv('DB_HOST') ?: ($_ENV['DB_HOST'] ?? 'localhost');
+        $port = getenv('DB_PORT') ?: ($_ENV['DB_PORT'] ?? '3306');
+        $database = getenv('DB_NAME') ?: ($_ENV['DB_NAME'] ?? 'chista');
+        $username = getenv('DB_USER') ?: getenv('DB_USERNAME') ?: ($_ENV['DB_USER'] ?? $_ENV['DB_USERNAME'] ?? 'root');
+        $password = getenv('DB_PASSWORD') ?: ($_ENV['DB_PASSWORD'] ?? '');
         
         $dsn = "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4";
         
@@ -39,16 +44,8 @@ class Connection
         
         try {
             $pdo = new PDO($dsn, $username, $password, $options);
-            
-            // Query logging will be implemented later
-            // if (($_ENV['ENABLE_QUERY_LOG'] ?? 'false') === 'true' && 
-            //     ($_ENV['APP_ENV'] ?? 'production') === 'development') {
-            //     $pdo->setAttribute(PDO::ATTR_STATEMENT_CLASS, [LoggingPDOStatement::class]);
-            // }
-            
             return $pdo;
         } catch (PDOException $e) {
-            // Log the error but don't expose database details in production
             error_log("Database connection failed: " . $e->getMessage());
             
             if (($_ENV['APP_ENV'] ?? 'production') === 'development') {
@@ -71,7 +68,6 @@ class Connection
         }
     }
     
-    // Prevent cloning and unserialization
     private function __clone() {}
     public function __wakeup() {}
 } 
